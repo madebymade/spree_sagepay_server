@@ -1,0 +1,3 @@
+<% if @sage_pay.status == :ok %>
+  <iframe  width="100%" height="400" src="<%= @sage_pay.next_url %>"></iframe>
+<% end %>

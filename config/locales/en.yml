@@ -1,0 +1,6 @@
+---
+en:
+  spree:
+    sagepay:
+      transaction: "SagePay Transaction"
+      no_payment_via_admin_backend: "No SagePay Server payments from backend"
