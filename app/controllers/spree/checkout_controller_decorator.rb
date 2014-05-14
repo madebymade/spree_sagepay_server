@@ -67,6 +67,6 @@ Spree::CheckoutController.class_eval do
   def use_proxy
     return false unless payment_method.preferred_proxy_enabled
 
-    "#{payment_method.preferred_proxy_host}:#{payment_method.preferred_proxy_host}"
+    "#{payment_method.preferred_proxy_host}:#{payment_method.preferred_proxy_port}"
   end
 end
