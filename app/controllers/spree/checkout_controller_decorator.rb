@@ -1,18 +1,16 @@
 Spree::CheckoutController.class_eval do
-  skip_before_filter :setup_for_current_state
-  before_filter :setup_with_sagepay
+  alias_method :original_before_payment, :before_payment
 
-  def setup_with_sagepay
-    setup_for_current_state
-    setup_sagepay if @order.state == 'payment'
+  def before_payment
+    original_before_payment
+    setup_sagepay
   end
 
   def setup_sagepay
     return unless has_sagepay_gateway?
     @sage_pay = register_with_sage_pay
-
     if @sage_pay.status == :ok
-      create_pending_payment
+      create_checkout_payment
     end
   end
 
@@ -22,14 +20,12 @@ Spree::CheckoutController.class_eval do
     payment_method.present?
   end
 
-  def create_pending_payment
-    @order.payments.create({
-      :amount         => @order.total,
-      :source         => Spree::SagepayServerCheckout.create({
+  def create_checkout_payment
+    @order.payments.create!({
+      :source         => Spree::SagepayServerCheckout.create!({
         :security_key => @sage_pay.security_key,
         :vpstx_id => @sage_pay.vps_tx_id
       }, :without_protection => true),
-      :state          => :pending,
       :payment_method => payment_method,
     }, :without_protection => true)
   end

@@ -52,13 +52,19 @@ module Spree
     end
 
     def complete_payment
-      payment_source.payments.first.update_attributes({
-        :state => :complete
+      # cant set payment to complete here due to a validation
+      # in order transition from payment to complete (it requires at
+      # least one pending payment)
+
+      payment_source.payments.last.update_attributes!({
+        :amount => spree_order.total,
+        :cvv_response_message => sagepay_notification.cv2_result,
+        :avs_response => sagepay_notification.avs_cv2
       }, :without_protection => true)
     end
 
     def fail_payment
-      payment_source.payments.first.update_attributes({
+      payment_source.payments.last.update_attributes!({
         :state => :failed
       }, :without_protection => true)
     end
