@@ -2,12 +2,13 @@ module Spree
   class SagepayController  < StoreController
     skip_before_filter :verify_authenticity_token, :only => :notification
     before_filter :sagepay_notification, :only => :notification
+    layout false, :only => :redirect
 
     def notification
       unless authorized?
         render(
           :layout => false,
-          :text => sagepay_notification.response(redirect_url(sagepay_notification.status, spree_order))
+          :text => sagepay_notification.response(callback_url(spree_order))
         ) and return
       end
 
@@ -21,11 +22,19 @@ module Spree
 
       render(
         :layout => false,
-        :text => sagepay_notification.response(redirect_url(sagepay_notification.status, spree_order))
+        :text => sagepay_notification.response(callback_url(spree_order))
       )
     end
 
+    def redirect
+      @url = redirect_url(spree_order_from_param)
+    end
+
     private
+
+    def spree_order_from_param
+      @order ||= Spree::Order.find_by_id(params[:order])
+    end
 
     def spree_order
       @order ||= payment_source.payments.first.order
@@ -73,7 +82,11 @@ module Spree
       spree.checkout_state_url(spree_order.state)
     end
 
-    def redirect_url(status, order)
+    def callback_url(order)
+      spree.sagepay_redirect_url(:order => order.id)
+    end
+
+    def redirect_url(order)
       if order.complete?
         return spree.order_url(order, :token => order.token)
       end
