@@ -8,9 +8,12 @@ Spree::CheckoutController.class_eval do
 
   def setup_sagepay
     return unless has_sagepay_gateway?
-    @sage_pay = register_with_sage_pay
-    if @sage_pay.status == :ok
+    @payment = register_with_sagepay
+
+    if @payment.status == :ok
       create_checkout_payment
+    else
+      flash[:error] = 'Unable to register payment'
     end
   end
 
@@ -21,43 +24,47 @@ Spree::CheckoutController.class_eval do
   end
 
   def create_checkout_payment
-    @order.payments.create!({
-      :source         => Spree::SagepayServerCheckout.create!({
-        :security_key => @sage_pay.security_key,
-        :vpstx_id => @sage_pay.vps_tx_id
-      }, :without_protection => true),
-      :payment_method => payment_method,
-    }, :without_protection => true)
-  end
-
-  def payment_method
-    Spree::PaymentMethod.find(:first,
-      :conditions => {
-        :environment => Rails.env,
-        :active => true,
-        :type => "Spree::Gateway::SagepayServer"
-      }
+    @order.payments.create!(
+      source: source,
+      payment_method: payment_method
     )
   end
 
-  def register_with_sage_pay
-    registered_payment = SagePay::Server.payment({
-      :http_proxy => use_proxy,
-      :amount => @order.total,
-      :currency => @order.currency,
-      :customer_email => @order.email,
-      :description => @order.number,
-      :notification_url => notification_url,
-      :billing_address => @order.bill_address.sage_pay_address,
-      :delivery_address => @order.ship_address.sage_pay_address,
-      :profile => :low
-    })
+  def source
+    Spree::SagepayServerCheckout.create!(
+      security_key: @payment.security_key,
+      vpstx_id: @payment.vps_tx_id
+    )
+  end
+
+  def payment_method
+    Spree::PaymentMethod.find_by(
+      environment: Rails.env,
+      active: true,
+      type: 'Spree::Gateway::SagepayServer'
+    )
+  end
+
+  def register_with_sagepay
+    registered_payment = SagePay::Server.payment(
+      http_proxy: use_proxy,
+      mode: payment_method.preferred_mode.to_sym,
+      profile: payment_method.preferred_profile.to_sym,
+      vendor: payment_method.preferred_vendor,
+      amount: @order.total,
+      currency: @order.currency,
+      customer_email: @order.email,
+      description: @order.number,
+      notification_url: notification_url,
+      billing_address: @order.bill_address.sagepay_address,
+      delivery_address: @order.ship_address.sagepay_address
+    )
 
     registered_payment.run!
   end
 
   def notification_url
-    spree.sagepay_notification_url(:payment_method_id => payment_method.id)
+    spree.sagepay_notification_url(payment_method_id: payment_method.id)
   end
 
   def use_proxy

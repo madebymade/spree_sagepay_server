@@ -1,3 +1,7 @@
-<% if @sage_pay.status == :ok %>
-  <iframe  width="100%" height="400" src="<%= @sage_pay.next_url %>"></iframe>
+<% if @payment.status == :ok %>
+  <iframe width="100%" height="410" src="<%= @payment.next_url %>"></iframe>
+<% else %>
+  <p class="sagepay-error">
+    Unable to register transaction with Sagepay.
+  </p>
 <% end %>

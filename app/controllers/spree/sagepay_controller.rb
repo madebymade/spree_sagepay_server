@@ -1,14 +1,12 @@
 module Spree
-  class SagepayController  < StoreController
-    skip_before_filter :verify_authenticity_token, :only => :notification
-    before_filter :sagepay_notification, :only => :notification
-    layout false, :only => :redirect
+  class SagepayController < StoreController
+    skip_before_filter :verify_authenticity_token, only: :notification
+    layout false
 
     def notification
-      unless authorized?
+      unless status_ok?
         render(
-          :layout => false,
-          :text => sagepay_notification.response(callback_url(spree_order))
+          text: sagepay_notification.response(callback_url(spree_order))
         ) and return
       end
 
@@ -21,27 +19,23 @@ module Spree
       spree_order.next
 
       render(
-        :layout => false,
-        :text => sagepay_notification.response(callback_url(spree_order))
+        text: sagepay_notification.response(callback_url(spree_order))
       )
     end
 
     def redirect
-      @url = redirect_url(spree_order_from_param)
+      order = Spree::Order.find_by(number: params[:order])
+      @url = redirect_url(order)
     end
 
     private
-
-    def spree_order_from_param
-      @order ||= Spree::Order.find_by_id(params[:order])
-    end
 
     def spree_order
       @order ||= payment_source.payments.first.order
     end
 
     def sagepay_notification
-      @sagepay_notification ||= SagePay::Server::Notification.from_params(params, verification_details)
+      @sagepay_notification ||= SagePay::Server::Notification.from_params(clean_params, verification_details)
     end
 
     def payment_method
@@ -52,8 +46,12 @@ module Spree
       @payment_source ||= Spree::SagepayServerCheckout.find_by_vpstx_id(params['VPSTxId'])
     end
 
-    def authorized?
-      params['Status'] == "OK"
+    def status_ok?
+      params['Status'] == 'OK'
+    end
+
+    def clean_params
+      params.except(*[:controller, :action, :payment_method_id])
     end
 
     def provider
@@ -65,17 +63,17 @@ module Spree
       # in order transition from payment to complete (it requires at
       # least one pending payment)
 
-      payment_source.payments.last.update_attributes!({
-        :amount => spree_order.total,
-        :cvv_response_message => sagepay_notification.cv2_result,
-        :avs_response => sagepay_notification.avs_cv2
-      }, :without_protection => true)
+      payment_source.payments.last.update_attributes!(
+        amount: spree_order.total,
+        cvv_response_message: sagepay_notification.cv2_result,
+        avs_response: sagepay_notification.avs_cv2
+      )
     end
 
     def fail_payment
-      payment_source.payments.last.update_attributes!({
-        :state => :failed
-      }, :without_protection => true)
+      payment_source.payments.last.update_attributes!(
+        state: :failed
+      )
     end
 
     def failed_url
@@ -83,15 +81,15 @@ module Spree
     end
 
     def callback_url(order)
-      spree.sagepay_redirect_url(:order => order.id)
+      spree.sagepay_redirect_url(order: order.number)
     end
 
     def redirect_url(order)
       if order.complete?
-        return spree.order_url(order, :token => order.token)
+        return spree.order_url(order)
+      else
+        return failed_url
       end
-
-      failed_url
     end
 
     def verification_details
