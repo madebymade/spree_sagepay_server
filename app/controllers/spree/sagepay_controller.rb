@@ -77,7 +77,7 @@ module Spree
     end
 
     def failed_url
-      spree.checkout_state_url(spree_order.state)
+      spree.checkout_state_url(:payment)
     end
 
     def callback_url(order)
