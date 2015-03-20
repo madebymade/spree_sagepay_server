@@ -24,6 +24,7 @@ module Spree
     end
 
     def redirect
+      flash['order_completed'] = true
       order = Spree::Order.find_by(number: params[:order])
       @url = redirect_url(order)
     end
@@ -86,9 +87,9 @@ module Spree
 
     def redirect_url(order)
       if order.complete?
-        return spree.order_url(order)
+        spree.order_url(order)
       else
-        return failed_url
+        failed_url
       end
     end
 
